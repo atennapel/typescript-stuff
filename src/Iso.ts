@@ -1,3 +1,5 @@
+import List from "./List";
+
 // witnesses that two types are isomorphic
 export default class Iso<A, B> {
   constructor(
@@ -19,3 +21,6 @@ export default class Iso<A, B> {
     );
   }
 }
+
+export const isoArray2List = <T>(): Iso<T[], List<T>> =>
+  new Iso(List.from, x => x.toArray());
