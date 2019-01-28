@@ -1,0 +1,25 @@
+{
+  "name": "typescript-stuff",
+  "version": "1.0.0",
+  "description": "Collection of random thoughts in Typescript",
+  "main": "index.js",
+  "dependencies": {
+    "typescript": "^3.2.4"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "build": "tsc",
+    "test": "node build/src/test.js",
+    "buildtest": "npm run build && node build/src/test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/atennapel/typescript-stuff.git"
+  },
+  "author": "Albert ten Napel",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/atennapel/typescript-stuff/issues"
+  },
+  "homepage": "https://github.com/atennapel/typescript-stuff#readme"
+}
