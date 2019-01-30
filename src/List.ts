@@ -17,6 +17,10 @@ export default abstract class List<T> {
   }
 
   abstract map<R>(fn: (val: T) => R): List<R>;
+  abstract map2<T2, R>(fn: (val: T, val2: T2) => R, other: List<T2>): List<R>;
+  abstract chain<R>(fn: (val: T) => List<R>): List<R>;
+
+  abstract zip<T2, R>(fn: (val: T, val2: T2) => R, other: List<T2>): List<R>;
 
   abstract append(other: List<T>): List<T>;
 
@@ -33,6 +37,16 @@ export class Nil<T> extends List<T> {
   }
 
   map<R>(fn: (val: T) => R): List<R> {
+    return this as any as List<R>;
+  }
+  map2<T2, R>(fn: (val: T, val2: T2) => R, other: List<T2>): List<R> {
+    return this as any as List<R>;
+  }
+  chain<R>(fn: (val: T) => List<R>): List<R> {
+    return this as any as List<R>;
+  }
+
+  zip<T2, R>(fn: (val: T, val2: T2) => R, other: List<T2>): List<R> {
     return this as any as List<R>;
   }
 
@@ -59,6 +73,18 @@ export class Cons<T> extends List<T> {
 
   map<R>(fn: (val: T) => R): List<R> {
     return new Cons(fn(this.head), this.tail.map(fn));
+  }
+  map2<T2, R>(fn: (val: T, val2: T2) => R, other: List<T2>): List<R> {
+    return this.chain(x => other.map(y => fn(x, y)));
+  }
+  chain<R>(fn: (val: T) => List<R>): List<R> {
+    return fn(this.head).append(this.tail.chain(fn));
+  }
+
+  zip<T2, R>(fn: (val: T, val2: T2) => R, other: List<T2>): List<R> {
+    return other instanceof Nil ?
+      other as any as List<R> :
+      new Cons(fn(this.head, (other as any).head), this.tail.zip(fn, (other as any).tail));
   }
 
   append(other: List<T>): List<T> {
