@@ -10,13 +10,14 @@ interface Action<T, P> {
 }
 type Actions<O> = { [K in keyof O]: Action<K, O[K]> }[keyof O];
 
-interface Command<T, P, A> {
+interface Command<T, P> {
   type: T;
   payload: P;
-  action: A;
 }
+type Commands<O> = { [K in keyof O]: Command<K, O[K]> }[keyof O];
 
-interface StateMachineDescription<Ss, As, Cs> {
+interface StateMachineDescription<Ss, As, Cs, P> {
+  initial: (props: P) => States<Ss>;
   states:
     { [S in keyof Ss]:
       { [A in keyof As]:
@@ -24,31 +25,46 @@ interface StateMachineDescription<Ss, As, Cs> {
           val: [
             NS,
             (oldstate: State<S, Ss[S]>, action: Action<A, As[A]>) => Ss[NS],
-            Cs[]
+            Commands<Cs>[]
           ]
         ) => R) => R } };
-  initial: States<Ss>;
 }
 
 interface StateMachine<Ss, As> {
   state: States<Ss>;
   step: (action: Actions<As>) => void;
 };
+type Handler<As, Cs> = (com: Commands<Cs>, done: (action: Actions<As>) => void) => void;
 
-const createMachine = <Ss, As, Cs>(desc: StateMachineDescription<Ss, As, Cs>): StateMachine<Ss, As> => ({
-  state: desc.initial,
+const createMachine = <Ss = {}, As = {}, Cs = {}, P = void>(
+  desc: StateMachineDescription<Ss, As, Cs, P>,
+  props: P,
+  handler: Handler<As, Cs>,
+): StateMachine<Ss, As> => ({
+  state: desc.initial(props),
   step: function(action) {
-    const [ns, update, commands] = desc.states[this.state.state][action.type]((
-      val: [
-        keyof Ss,
-        (oldstate: States<Ss>, action: Actions<As>) => Ss[keyof Ss],
-        Cs[]
-      ]
-    ): [keyof Ss, (oldstate: States<Ss>, action: Actions<As>) => Ss[keyof Ss], Cs[]] => val);
+    const [ns, update, commands] = desc.states[this.state.state][action.type](
+      val => val as [keyof Ss, (s: States<Ss>, a: typeof action) => Ss[keyof Ss], Commands<Cs>[]]);
     const newdata = update(this.state, action);
+    console.log(`State change: ${this.state.state} => ${ns}, ${this.state.data} => ${newdata}`);
     this.state = { state: ns, data: newdata };
+    const done = this.step.bind(this);
+    for (let i = 0, l = commands.length; i < l; i++)
+      handler(commands[i], done);
   },
 });
+
+interface BasicCommands<As> {
+  Timeout: [number, Actions<As>];
+}
+const Timeout = <As>(amount: number, action: Actions<As>): Command<'Timeout', [number, Actions<As>]> =>
+  ({ type: 'Timeout', payload: [amount, action] });
+
+const basicCommandsHandler = <As>(com: Commands<BasicCommands<As>>, done: (action: Actions<As>) => void): void => {
+  if (com.type === 'Timeout') {
+    setTimeout(() => done(com.payload[1]), com.payload[0]);
+  }
+};
 
 // testing
 interface TestStates {
@@ -59,15 +75,10 @@ interface TestActions {
   inc: void;
   fail: string;
 }
-interface TestCommands {
-  Timeout: number;
-}
-type SMD = StateMachineDescription<TestStates, TestActions, TestCommands>;
-type SM = StateMachine<TestStates, TestActions>;
-const desc: SMD = {
+const desc: StateMachineDescription<TestStates, TestActions, BasicCommands<TestActions>, number> = {
   states: {
     Inc: {
-      inc: k => k(['Inc', st => st.data + 1, []]),
+      inc: k => k(['Inc', st => st.data + 1, [Timeout(2000, { type: 'fail', payload: 'oops' })]]),
       fail: k => k(['Error', (_, a) => a.payload, []]),
     },
     Error: {
@@ -75,13 +86,7 @@ const desc: SMD = {
       fail: k => k(['Error', (_, a) => a.payload, []]),
     },
   },
-  initial: { state: 'Inc', data: 0 },
+  initial: n => ({ state: 'Inc', data: n }),
 };
-const m: SM = createMachine(desc);
-console.log(m);
+const m = createMachine(desc, 0, basicCommandsHandler);
 m.step({ type: 'inc', payload: undefined });
-console.log(m);
-m.step({ type: 'inc', payload: undefined });
-console.log(m);
-m.step({ type: 'fail', payload: 'FAIL!' });
-console.log(m);
